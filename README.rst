@@ -129,7 +129,7 @@ TUN/TAP configuration:
     -net nic,netdev=macvtap0,macaddr=$MACVTAP0_ADDR,model=ftgmac100 \
     3<>$MACVTAP0_DEV
 
-Debugging with GDB:
+# Debugging with GDB:
 
 .. code-block:: shell
 
@@ -253,7 +253,7 @@ Debugging with GDB:
   # (gdb) b ast_adc_probe
   # (gdb) c
 
-Testing temperature sensors:
+# Testing temperature sensors:
 
 You can change the value of a temperature sensor, and many other kinds
 of device attributes that QEMU emulates, through the QEMU monitor. Use
