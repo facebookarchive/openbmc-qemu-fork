@@ -1,0 +1,54 @@
+on: [workflow_dispatch]
+jobs:
+  create_release:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: OpenBMC QEMU ${{ github.ref }}
+          draft: false
+          prerelease: false
+  build_qemu_executable:
+    strategy:
+      matrix:
+        os: [ubuntu, centos8]
+    runs-on: ubuntu-20.04
+    container:
+      image: peterdelevoryas/${{ matrix.os }}-qemu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure
+        run: ./configure --target-list=arm-softmmu --disable-vnc --disable-curses --disable-sdl
+      - name: Make
+        run: make -j $(nproc)
+      - name: Upload QEMU executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: qemu-system-arm.${{ matrix.os }}
+          path: build/qemu-system-arm
+  upload_qemu_executable:
+    strategy:
+      matrix:
+        os: [ubuntu, centos8]
+    needs: build_qemu_executable
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download executable
+        uses: actions/download-artifact@v2
+        with:
+          name: qemu-system-arm.${{ matrix.os }}
+      - name: Upload QEMU Executable
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./qemu-system-arm.${{ matrix.os }}
+          asset_name: qemu-system-arm.${{ matrix.os }}
+          asset_content_type: application/octet-stream
