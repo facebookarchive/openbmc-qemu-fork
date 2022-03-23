@@ -1,0 +1,21 @@
+on: [push, pull_request]
+jobs:
+  build:
+    strategy:
+      matrix:
+        container: [ubuntu, centos8]
+    runs-on: ubuntu-20.04
+    container:
+      image: peterdelevoryas/${{ matrix.container }}-qemu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure
+        run: ./configure --target-list=arm-softmmu --disable-vnc --disable-curses --disable-sdl
+      - name: Make
+        run: make -j $(nproc)
+      - name: Upload QEMU executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: qemu-system-arm.${{ matrix.container }}
+          path: build/qemu-system-arm
