@@ -1,8 +1,11 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "qemu/osdep.h"
+#include "qapi/qmp/qdict.h"
+#include "qapi/error.h"
 #include "hw/i2c/i2c.h"
 #include "hw/i2c/net_i2c.h"
+#include "hw/qdev-properties.h"
 #include "migration/vmstate.h"
 
 #define DEBUG_NET_I2C 1
@@ -28,10 +31,8 @@ enum {
 
 static void net_i2c_do_write(NetI2C *dev)
 {
-    NetClientState *nc = qemu_get_queue(dev->nic);
-
     DPRINTF("Command %d len %d\n", dev->data_buf[0], dev->data_len);
-    ssize_t size = qemu_send_packet(nc, dev->data_buf, dev->data_len);
+    ssize_t size = qemu_send_packet(dev->netdev, dev->data_buf, dev->data_len);
     assert(size == dev->data_len);
 }
 
@@ -120,13 +121,12 @@ static int net_i2c_event(I2CSlave *s, enum i2c_event event)
 static uint8_t net_i2c_recv(I2CSlave *s)
 {
     NetI2C *dev = NET_I2C(s);
-    NetClientState *nc = qemu_get_queue(dev->nic);
     uint8_t ret = 0xff;
     ssize_t size;
 
     switch (dev->mode) {
     case NET_I2C_READ_DATA:
-        size = qemu_receive_packet(nc, &ret, 1);
+        size = qemu_receive_packet(dev->netdev, &ret, 1);
         assert(size == 1);
         DPRINTF("Read data %02x\n", ret);
         break;
@@ -162,39 +162,25 @@ static int net_i2c_send(I2CSlave *s, uint8_t data)
     return 0;
 }
 
-static NetClientInfo net_i2c_info = {
-    .type = NET_CLIENT_DRIVER_NIC,
-    .size = sizeof(NICState),
-};
-
 static Property net_i2c_properties[] = {
-    DEFINE_NIC_PROPERTIES(NetI2C, conf),
+    DEFINE_PROP_STRING("netdev", NetI2C, netdev_id),
     DEFINE_PROP_END_OF_LIST(),
 };
 
 static void net_i2c_realize(DeviceState *dev, Error **errp)
 {
-    NetI2C *s = NET_I2C(dev);
-    NetClientState *nc = qemu_find_netdev("net_i2c");
-    if (nc == NULL) {
-        printf("Please specify -netdev xx,id=net_i2c to enable net_i2c.\n");
-    } else {
-        // Find unused entry and fill it.
-        for(uint32_t nic = 0; nic < MAX_NICS; nic++) {
-            NICInfo *entry = nd_table + nic;
-            if (!entry->used) {
-                entry->netdev = nc;
-                entry->used = true;
-                qdev_set_nic_properties(dev, entry);
-                break;
-            }
-        }
+    const char *netdev_id = qdict_get_str(dev->opts, "netdev");
+    if (!netdev_id) {
+        error_setg(errp, "net.i2c device options missing 'netdev'");
+        return;
     }
 
-    qemu_macaddr_default_if_unset(&s->conf.macaddr);
-    s->nic = qemu_new_nic(&net_i2c_info, &s->conf,
-                          object_get_typename(OBJECT(dev)), dev->id, s);
-    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->conf.macaddr.a);
+    NetI2C *s = NET_I2C(dev);
+    s->netdev = qemu_find_netdev(netdev_id);
+    if (!s->netdev) {
+        error_setg(errp, "Unable to find netdev '%s'", netdev_id);
+        return;
+    }
 }
 
 static void net_i2c_class_init(ObjectClass *klass, void *data)

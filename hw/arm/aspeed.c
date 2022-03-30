@@ -955,7 +955,6 @@ static void wedge100_i2c_init(AspeedMachineState *bmc)
 
 static void clearcreek_i2c_init(AspeedMachineState *bmc)
 {
-    i2c_slave_create_simple(aspeed_i2c_get_bus(&bmc->soc.i2c, 8), TYPE_NET_I2C, 0x32);
 }
 
 static bool aspeed_get_mmio_exec(Object *obj, Error **errp)

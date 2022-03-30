@@ -20,8 +20,8 @@ struct NetI2C {
     int32_t data_len;
     uint8_t data_buf[NET_I2C_DATA_MAX_LEN];
 
-    NICState *nic;
-    NICConf conf;
+    char *netdev_id;
+    NetClientState *netdev;
 };
 
 #endif
