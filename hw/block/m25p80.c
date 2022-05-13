@@ -810,6 +810,7 @@ static void reset_memory(Flash *s)
     s->needed_bytes = 0;
     s->pos = 0;
     s->state = STATE_IDLE;
+    s->write_protect = true;
     s->write_enable = false;
     s->reset_enable = false;
     s->quad_enable = false;
