@@ -810,7 +810,6 @@ static void reset_memory(Flash *s)
     s->needed_bytes = 0;
     s->pos = 0;
     s->state = STATE_IDLE;
-    s->write_protect = true;
     s->write_enable = false;
     s->reset_enable = false;
     s->quad_enable = false;
@@ -1560,6 +1559,8 @@ static void m25p80_realize(SSIPeripheral *ss, Error **errp)
 static void m25p80_reset(DeviceState *d)
 {
     Flash *s = M25P80(d);
+
+    s->write_protect = true;
 
     reset_memory(s);
 }
