@@ -916,6 +916,7 @@ static void reset_memory(Flash *s)
         break;
     }
 
+    memset(s->storage, 0xff, s->size);
     trace_m25p80_reset_done(s);
 }
 

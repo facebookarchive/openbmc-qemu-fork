@@ -216,18 +216,22 @@ static void test_erase_sector(void)
     spi_ctrl_start_user();
     writeb(ASPEED_FLASH_BASE, WREN);
     writeb(ASPEED_FLASH_BASE, EN_4BYTE_ADDR);
+    spi_ctrl_setmode(CTRL_WRITEMODE, PP);
+    spi_ctrl_stop_user();
+
+    /* Write to some page */
+    for (int i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
+        writel(some_page_addr + i * 4, 0xabcdef12);
+    }
+
+    spi_ctrl_start_user();
+    writeb(ASPEED_FLASH_BASE, WREN);
+    writeb(ASPEED_FLASH_BASE, EN_4BYTE_ADDR);
     writeb(ASPEED_FLASH_BASE, ERASE_SECTOR);
     writel(ASPEED_FLASH_BASE, make_be32(some_page_addr));
     spi_ctrl_stop_user();
 
-    /* Previous page should be full of zeroes as backend is not
-     * initialized */
-    read_page(some_page_addr - FLASH_PAGE_SIZE, page);
-    for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
-        g_assert_cmphex(page[i], ==, 0x0);
-    }
-
-    /* But this one was erased */
+    /* Check this page was erased */
     read_page(some_page_addr, page);
     for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
         g_assert_cmphex(page[i], ==, 0xffffffff);
@@ -244,11 +248,15 @@ static void test_erase_all(void)
 
     spi_conf(CONF_ENABLE_W0);
 
-    /* Check some random page. Should be full of zeroes as backend is
-     * not initialized */
-    read_page(some_page_addr, page);
-    for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
-        g_assert_cmphex(page[i], ==, 0x0);
+    spi_ctrl_start_user();
+    writeb(ASPEED_FLASH_BASE, WREN);
+    writeb(ASPEED_FLASH_BASE, EN_4BYTE_ADDR);
+    spi_ctrl_setmode(CTRL_WRITEMODE, PP);
+    spi_ctrl_stop_user();
+
+    /* Write to some random page */
+    for (int i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
+        writel(some_page_addr + i * 4, 0xabcdef12);
     }
 
     spi_ctrl_start_user();
@@ -265,7 +273,7 @@ static void test_erase_all(void)
     flash_reset();
 }
 
-static void test_write_page(void)
+static void test_read_write_page(void)
 {
     uint32_t my_page_addr = 0x14000 * FLASH_PAGE_SIZE; /* beyond 16MB */
     uint32_t some_page_addr = 0x15000 * FLASH_PAGE_SIZE;
@@ -294,40 +302,6 @@ static void test_write_page(void)
 
     /* Check some other page. It should be full of 0xff */
     read_page(some_page_addr, page);
-    for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
-        g_assert_cmphex(page[i], ==, 0xffffffff);
-    }
-
-    flash_reset();
-}
-
-static void test_read_page_mem(void)
-{
-    uint32_t my_page_addr = 0x14000 * FLASH_PAGE_SIZE; /* beyond 16MB */
-    uint32_t some_page_addr = 0x15000 * FLASH_PAGE_SIZE;
-    uint32_t page[FLASH_PAGE_SIZE / 4];
-    int i;
-
-    /* Enable 4BYTE mode for controller. This is should be strapped by
-     * HW for CE0 anyhow.
-     */
-    spi_ce_ctrl(1 << CRTL_EXTENDED0);
-
-    /* Enable 4BYTE mode for flash. */
-    spi_conf(CONF_ENABLE_W0);
-    spi_ctrl_start_user();
-    writeb(ASPEED_FLASH_BASE, EN_4BYTE_ADDR);
-    spi_ctrl_stop_user();
-    spi_conf_remove(CONF_ENABLE_W0);
-
-    /* Check what was written */
-    read_page_mem(my_page_addr, page);
-    for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
-        g_assert_cmphex(page[i], ==, my_page_addr + i * 4);
-    }
-
-    /* Check some other page. It should be full of 0xff */
-    read_page_mem(some_page_addr, page);
     for (i = 0; i < FLASH_PAGE_SIZE / 4; i++) {
         g_assert_cmphex(page[i], ==, 0xffffffff);
     }
@@ -633,8 +607,7 @@ int main(int argc, char **argv)
     qtest_add_func("/ast2400/smc/read_jedec", test_read_jedec);
     qtest_add_func("/ast2400/smc/erase_sector", test_erase_sector);
     qtest_add_func("/ast2400/smc/erase_all",  test_erase_all);
-    qtest_add_func("/ast2400/smc/write_page", test_write_page);
-    qtest_add_func("/ast2400/smc/read_page_mem", test_read_page_mem);
+    qtest_add_func("/ast2400/smc/read_write_page", test_read_write_page);
     qtest_add_func("/ast2400/smc/write_page_mem", test_write_page_mem);
     qtest_add_func("/ast2400/smc/read_status_reg", test_read_status_reg);
     qtest_add_func("/ast2400/smc/status_reg_write_protection",
