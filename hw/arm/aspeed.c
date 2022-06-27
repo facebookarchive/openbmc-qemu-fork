@@ -426,9 +426,14 @@ static void aspeed_machine_init(MachineState *machine)
     aspeed_board_init_flashes(&bmc->soc.fmc,
                               bmc->fmc_model ? bmc->fmc_model : amc->fmc_model,
                               amc->num_cs, 0);
-    aspeed_board_init_flashes(&bmc->soc.spi[0],
-                              bmc->spi_model ? bmc->spi_model : amc->spi_model,
-                              1, amc->num_cs);
+    // aspeed_board_init_flashes(&bmc->soc.spi[0],
+    //                           bmc->spi_model ? bmc->spi_model : amc->spi_model,
+    //                           1, amc->num_cs);
+
+    DriveInfo *dinfo = drive_get(IF_MTD, 0, 1);
+    BlockBackend *blk;
+    blk = blk_by_legacy_dinfo(dinfo);
+    qdev_prop_set_drive(DEVICE(m25p80), "drive", blk);
 
     /* Install first FMC flash content as a boot rom. */
     if (drive0) {
@@ -1446,7 +1451,7 @@ static void aspeed_machine_fby35_class_init(ObjectClass *oc, void *data)
     mc->desc       = "Facebook fby35 BMC (Cortex-A7)";
     mc->reset      = fby35_reset;
     amc->fmc_model = "n25q00";
-    amc->num_cs    = 2;
+    amc->num_cs    = 1;
     amc->macs_mask = ASPEED_MAC3_ON;
     amc->i2c_init  = fby35_i2c_init;
     /* FIXME: Replace this macro with something more general */
